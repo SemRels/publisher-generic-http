@@ -88,7 +88,7 @@ jobs:
           set -euo pipefail
           for f in CODE_OF_CONDUCT.md CONTRIBUTING.md; do
             if [ -f "template/$f" ] && [ -f "plugin/$f" ]; then
-              sed "s/{{PROJECT_NAME}}/$PLUGIN/g; s/{{DEFAULT_BRANCH}}/main/g" "template/$f" > "plugin/$f"
+              sed "s/publisher-generic-http/$PLUGIN/g; s/main/main/g" "template/$f" > "plugin/$f"
             fi
           done
           for f in Makefile GOVERNANCE.md SECURITY.md MAINTAINERS.md; do
@@ -97,7 +97,7 @@ jobs:
             fi
           done
           if [ -f "template/Dockerfile" ] && [ -f "plugin/Dockerfile" ]; then
-            sed "s/plugin-template Authors/$PLUGIN Authors/" "template/Dockerfile" > "plugin/Dockerfile"
+            sed "s/publisher-generic-http Authors/$PLUGIN Authors/" "template/Dockerfile" > "plugin/Dockerfile"
           fi
           if [ "$INCLUDE_WORKFLOWS" = "true" ]; then
             for wf in ci.yml release.yml security.yml; do

@@ -4,7 +4,7 @@
 
 | Version | Supported |
 | --- | --- |
-| `main` / `{{DEFAULT_BRANCH}}` | ? |
+| `main` / `main` | ? |
 
 Update this table once stable releases exist.
 
@@ -12,9 +12,9 @@ Update this table once stable releases exist.
 
 **Do not open a public issue for security vulnerabilities.**
 
-Please report vulnerabilities through **[GitHub Security Advisories]({{SECURITY_ADVISORY_URL}})**.
+Please report vulnerabilities through **[GitHub Security Advisories](https://github.com/SemRels/publisher-generic-http/security/advisories/new)**.
 
-Alternative contact: {{SECURITY_CONTACT}}
+Alternative contact: security@semrel.io
 
 ## What To Include
 

@@ -1,8 +1,8 @@
-# {{PLUGIN_NAME}}
+# publisher-generic-http
 
 > Replace this description with what your SemRel plugin does.
 
-This repository is based on the `SemRels/plugin-template` GitHub template and provides a clean starting point for provider, analyzer, generator, updater, or hook plugins.
+This repository is based on the `SemRels/plugin-template` GitHub template and provides a clean starting point for provider, analyzer, generator, updater, hook, packager, or publisher plugins.
 
 ## Repository Layout
 

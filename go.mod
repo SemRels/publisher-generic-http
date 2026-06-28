@@ -1,4 +1,4 @@
-module github.com/SemRels/plugin-template
+module github.com/SemRels/publisher-generic-http
 
 go 1.25
 
