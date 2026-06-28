@@ -3,31 +3,133 @@
 
 package plugin
 
-import "context"
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
 
-// Provider defines the minimal contract a SemRel provider plugin should implement.
+// Publisher uploads release artifacts to a generic HTTP endpoint.
+type Publisher struct {
+	name string
+}
+
 type Provider interface {
 	Name() string
 	HealthCheck(context.Context) error
 }
 
-// ProviderPlugin is a small default implementation that can be extended or replaced.
-type ProviderPlugin struct {
-	name string
-}
-
-func NewProvider(name string) *ProviderPlugin {
+func NewPublisher(name string) *Publisher {
 	if name == "" {
 		name = "publisher-generic-http"
 	}
 
-	return &ProviderPlugin{name: name}
+	return &Publisher{name: name}
 }
 
-func (p *ProviderPlugin) Name() string {
+func (p *Publisher) Name() string {
 	return p.name
 }
 
-func (p *ProviderPlugin) HealthCheck(context.Context) error {
+func (p *Publisher) HealthCheck(context.Context) error {
 	return nil
+}
+
+func ParseArtifacts(getenv func(string) string) ([]string, error) {
+	if raw := strings.TrimSpace(getenv("SEMREL_PLUGIN_ARTIFACTS")); raw != "" {
+		parts := strings.Split(raw, ",")
+		artifacts := make([]string, 0, len(parts))
+		for _, item := range parts {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				artifacts = append(artifacts, trimmed)
+			}
+		}
+		if len(artifacts) > 0 {
+			return artifacts, nil
+		}
+	}
+
+	if raw := strings.TrimSpace(getenv("SEMREL_PLUGIN_ARTIFACTS_JSON")); raw != "" {
+		var artifacts []string
+		if err := json.Unmarshal([]byte(raw), &artifacts); err != nil {
+			return nil, fmt.Errorf("parse SEMREL_PLUGIN_ARTIFACTS_JSON: %w", err)
+		}
+		if len(artifacts) > 0 {
+			return artifacts, nil
+		}
+	}
+
+	if single := strings.TrimSpace(getenv("SEMREL_PLUGIN_ARTIFACT")); single != "" {
+		return []string{single}, nil
+	}
+
+	return nil, fmt.Errorf("no artifacts configured (SEMREL_PLUGIN_ARTIFACTS, SEMREL_PLUGIN_ARTIFACTS_JSON, or SEMREL_PLUGIN_ARTIFACT)")
+}
+
+func ResolveURL(urlTemplate, version, artifact string) string {
+	resolved := strings.ReplaceAll(urlTemplate, "{version}", version)
+	resolved = strings.ReplaceAll(resolved, "{artifact}", filepath.Base(artifact))
+	if !strings.Contains(urlTemplate, "{artifact}") {
+		if strings.HasSuffix(resolved, "/") {
+			resolved += filepath.Base(artifact)
+		} else {
+			resolved += "/" + filepath.Base(artifact)
+		}
+	}
+	return resolved
+}
+
+func ParseHeaders(getenv func(string) string) (map[string]string, error) {
+	headers := map[string]string{}
+	if raw := strings.TrimSpace(getenv("SEMREL_PLUGIN_HEADERS_JSON")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &headers); err != nil {
+			return nil, fmt.Errorf("parse SEMREL_PLUGIN_HEADERS_JSON: %w", err)
+		}
+	}
+	return headers, nil
+}
+
+func UploadArtifact(client *http.Client, method, url string, headers map[string]string, token, artifact string) error {
+	body, err := os.ReadFile(artifact)
+	if err != nil {
+		return fmt.Errorf("read artifact %s: %w", artifact, err)
+	}
+
+	req, err := http.NewRequest(method, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("http upload: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(snippet)))
+	}
+
+	return nil
+}
+
+func DefaultHTTPClient() *http.Client {
+	return &http.Client{Timeout: 60 * time.Second}
 }

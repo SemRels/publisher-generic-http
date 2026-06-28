@@ -4,22 +4,82 @@
 package main
 
 import (
-	"context"
-	"log"
+	"fmt"
+	"io"
 	"os"
+	"strings"
 
-	grpcserver "github.com/SemRels/publisher-generic-http/internal/grpc"
-	semrelplugin "github.com/SemRels/publisher-generic-http/internal/plugin"
+	"github.com/SemRels/publisher-generic-http/internal/plugin"
 )
 
-func main() {
-	provider := semrelplugin.NewProvider("publisher-generic-http")
-	server := grpcserver.NewProviderServer(provider)
+const pluginSchemaVersion = 1
 
-	if _, err := server.Health(context.Background()); err != nil {
-		log.Printf("plugin health check failed: %v", err)
-		os.Exit(1)
+func main() {
+	os.Exit(run(os.Stdout, os.Stderr, os.Getenv))
+}
+
+func run(stdout, stderr io.Writer, getenv func(string) string) int {
+	_, _ = fmt.Fprintf(stderr, "plugin_schema_version=%d\n", pluginSchemaVersion)
+
+	version := getenv("SEMREL_VERSION")
+	if version == "" {
+		version = getenv("SEMREL_NEXT_VERSION")
+	}
+	if version == "" {
+		fmt.Fprintln(stderr, "publisher-generic-http: SEMREL_VERSION is required")
+		return 1
+	}
+	version = strings.TrimPrefix(version, "v")
+
+	urlTemplate := strings.TrimSpace(getenv("SEMREL_PLUGIN_URL"))
+	if urlTemplate == "" {
+		fmt.Fprintln(stderr, "publisher-generic-http: SEMREL_PLUGIN_URL is required")
+		return 1
 	}
 
-	log.Printf("%s plugin template is ready", provider.Name())
+	method := strings.ToUpper(strings.TrimSpace(getenv("SEMREL_PLUGIN_METHOD")))
+	if method == "" {
+		method = httpMethodPut
+	}
+
+	artifacts, err := plugin.ParseArtifacts(getenv)
+	if err != nil {
+		fmt.Fprintln(stderr, "publisher-generic-http:", err)
+		return 1
+	}
+
+	headers, err := plugin.ParseHeaders(getenv)
+	if err != nil {
+		fmt.Fprintln(stderr, "publisher-generic-http:", err)
+		return 1
+	}
+
+	token := strings.TrimSpace(getenv("SEMREL_PLUGIN_TOKEN"))
+	dryRun := strings.EqualFold(getenv("SEMREL_DRY_RUN"), "true")
+	client := plugin.DefaultHTTPClient()
+
+	for _, artifact := range artifacts {
+		resolvedURL := plugin.ResolveURL(urlTemplate, version, artifact)
+		if dryRun {
+			fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] would %s %s <- %s\n", method, resolvedURL, artifact)
+			continue
+		}
+
+		if err := plugin.UploadArtifact(client, method, resolvedURL, headers, token, artifact); err != nil {
+			fmt.Fprintf(stderr, "publisher-generic-http: upload %s failed: %v\n", artifact, err)
+			return 1
+		}
+
+		fmt.Fprintf(stdout, "publisher-generic-http: uploaded %s to %s\n", artifact, resolvedURL)
+	}
+
+	if dryRun {
+		fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] publication plan ready for version %s\n", version)
+		return 0
+	}
+
+	fmt.Fprintf(stdout, "publisher-generic-http: published %d artifact(s)\n", len(artifacts))
+	return 0
 }
+
+const httpMethodPut = "PUT"

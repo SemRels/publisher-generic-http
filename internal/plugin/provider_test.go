@@ -4,25 +4,49 @@
 package plugin
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewProviderDefaultsName(t *testing.T) {
+func TestResolveURLReplacesTokens(t *testing.T) {
 	t.Parallel()
 
-	provider := NewProvider("")
-
-	require.Equal(t, "publisher-generic-http", provider.Name())
-	require.NoError(t, provider.HealthCheck(context.Background()))
+	resolved := ResolveURL("https://uploads.example.com/releases/{version}/{artifact}", "1.2.3", "dist/app.tar.gz")
+	require.Equal(t, "https://uploads.example.com/releases/1.2.3/app.tar.gz", resolved)
 }
 
-func TestNewProviderUsesProvidedName(t *testing.T) {
+func TestResolveURLAppendsArtifactWhenNoToken(t *testing.T) {
 	t.Parallel()
 
-	provider := NewProvider("provider-example")
+	resolved := ResolveURL("https://uploads.example.com/releases/1.2.3", "1.2.3", "dist/app.tar.gz")
+	require.Equal(t, "https://uploads.example.com/releases/1.2.3/app.tar.gz", resolved)
+}
 
-	require.Equal(t, "provider-example", provider.Name())
+func TestParseArtifactsCSV(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := ParseArtifacts(func(key string) string {
+		if key == "SEMREL_PLUGIN_ARTIFACTS" {
+			return "dist/a.tar.gz,dist/b.tar.gz"
+		}
+		return ""
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"dist/a.tar.gz", "dist/b.tar.gz"}, artifacts)
+}
+
+func TestParseHeaders(t *testing.T) {
+	t.Parallel()
+
+	headers, err := ParseHeaders(func(key string) string {
+		if key == "SEMREL_PLUGIN_HEADERS_JSON" {
+			return "{\"X-Test\":\"true\"}"
+		}
+		return ""
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "true", headers["X-Test"])
 }
