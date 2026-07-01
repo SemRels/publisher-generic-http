@@ -1,5 +1,7 @@
 # publisher-generic-http
 
+[![Latest Release](https://img.shields.io/github/v/release/SemRels/publisher-generic-http?label=version\&color=blue)](https://github.com/SemRels/publisher-generic-http/releases/latest)
+
 Generic HTTP publisher plugin for semrel. It uploads release artifacts to custom endpoints via HTTP PUT/POST.
 
 ## Repository Layout
