@@ -26,14 +26,14 @@ func run(stdout, stderr io.Writer, getenv func(string) string) int {
 		version = getenv("SEMREL_NEXT_VERSION")
 	}
 	if version == "" {
-		fmt.Fprintln(stderr, "publisher-generic-http: SEMREL_VERSION is required")
+		_, _ = fmt.Fprintln(stderr, "publisher-generic-http: SEMREL_VERSION is required")
 		return 1
 	}
 	version = strings.TrimPrefix(version, "v")
 
 	urlTemplate := strings.TrimSpace(getenv("SEMREL_PLUGIN_URL"))
 	if urlTemplate == "" {
-		fmt.Fprintln(stderr, "publisher-generic-http: SEMREL_PLUGIN_URL is required")
+		_, _ = fmt.Fprintln(stderr, "publisher-generic-http: SEMREL_PLUGIN_URL is required")
 		return 1
 	}
 
@@ -44,13 +44,13 @@ func run(stdout, stderr io.Writer, getenv func(string) string) int {
 
 	artifacts, err := plugin.ParseArtifacts(getenv)
 	if err != nil {
-		fmt.Fprintln(stderr, "publisher-generic-http:", err)
+		_, _ = fmt.Fprintln(stderr, "publisher-generic-http:", err)
 		return 1
 	}
 
 	headers, err := plugin.ParseHeaders(getenv)
 	if err != nil {
-		fmt.Fprintln(stderr, "publisher-generic-http:", err)
+		_, _ = fmt.Fprintln(stderr, "publisher-generic-http:", err)
 		return 1
 	}
 
@@ -61,24 +61,24 @@ func run(stdout, stderr io.Writer, getenv func(string) string) int {
 	for _, artifact := range artifacts {
 		resolvedURL := plugin.ResolveURL(urlTemplate, version, artifact)
 		if dryRun {
-			fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] would %s %s <- %s\n", method, resolvedURL, artifact)
+			_, _ = fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] would %s %s <- %s\n", method, resolvedURL, artifact)
 			continue
 		}
 
 		if err := plugin.UploadArtifact(client, method, resolvedURL, headers, token, artifact); err != nil {
-			fmt.Fprintf(stderr, "publisher-generic-http: upload %s failed: %v\n", artifact, err)
+			_, _ = fmt.Fprintf(stderr, "publisher-generic-http: upload %s failed: %v\n", artifact, err)
 			return 1
 		}
 
-		fmt.Fprintf(stdout, "publisher-generic-http: uploaded %s to %s\n", artifact, resolvedURL)
+		_, _ = fmt.Fprintf(stdout, "publisher-generic-http: uploaded %s to %s\n", artifact, resolvedURL)
 	}
 
 	if dryRun {
-		fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] publication plan ready for version %s\n", version)
+		_, _ = fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] publication plan ready for version %s\n", version)
 		return 0
 	}
 
-	fmt.Fprintf(stdout, "publisher-generic-http: published %d artifact(s)\n", len(artifacts))
+	_, _ = fmt.Fprintf(stdout, "publisher-generic-http: published %d artifact(s)\n", len(artifacts))
 	return 0
 }
 

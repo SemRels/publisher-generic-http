@@ -4,7 +4,13 @@
 package plugin
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -49,4 +55,71 @@ func TestParseHeaders(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, "true", headers["X-Test"])
+}
+
+func TestRetryAfterDelay(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 24, 8, 0, 0, 0, time.UTC)
+	require.Equal(t, 3*time.Second, retryAfterDelay("3", now))
+	require.Equal(t, 2*time.Second, retryAfterDelay(now.Add(2*time.Second).Format(http.TimeFormat), now))
+	require.Zero(t, retryAfterDelay(now.Add(-time.Second).Format(http.TimeFormat), now))
+	require.Equal(t, maxRetryAfterDelay, retryAfterDelay("999999", now))
+	require.Equal(t, maxRetryAfterDelay, retryAfterDelay(now.Add(24*time.Hour).Format(http.TimeFormat), now))
+	require.Equal(t, 100*time.Millisecond, retryAfterDelay("invalid", now))
+}
+
+func TestUploadArtifactRetriesDateRetryAfterWithoutSleeping(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.July, 24, 8, 0, 0, 0, time.UTC)
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			w.Header().Set("Retry-After", now.Add(2*time.Second).Format(http.TimeFormat))
+			http.Error(w, "try again", http.StatusTooManyRequests)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	artifact := filepath.Join(t.TempDir(), "artifact")
+	require.NoError(t, os.WriteFile(artifact, []byte("payload"), 0o600))
+	var delays []time.Duration
+	err := uploadArtifact(
+		server.Client(), http.MethodPut, server.URL, nil, "", artifact,
+		func() time.Time { return now },
+		func(delay time.Duration) { delays = append(delays, delay) },
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, attempts)
+	require.Equal(t, []time.Duration{2 * time.Second}, delays)
+}
+
+func TestUploadArtifactReturnsLastRetryErrorWithoutSleeping(t *testing.T) {
+	t.Parallel()
+
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.Header().Set("Retry-After", "not-a-delay")
+		http.Error(w, fmt.Sprintf("failure %d", attempts), http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	artifact := filepath.Join(t.TempDir(), "artifact")
+	require.NoError(t, os.WriteFile(artifact, []byte("payload"), 0o600))
+	var delays []time.Duration
+	err := uploadArtifact(
+		server.Client(), http.MethodPost, server.URL, nil, "", artifact,
+		time.Now,
+		func(delay time.Duration) { delays = append(delays, delay) },
+	)
+
+	require.EqualError(t, err, "upload failed with status 429: failure 3")
+	require.Equal(t, uploadAttempts, attempts)
+	require.Equal(t, []time.Duration{100 * time.Millisecond, 100 * time.Millisecond}, delays)
 }
