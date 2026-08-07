@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -98,38 +99,90 @@ func ParseHeaders(getenv func(string) string) (map[string]string, error) {
 }
 
 func UploadArtifact(client *http.Client, method, url string, headers map[string]string, token, artifact string) error {
+	return uploadArtifact(client, method, url, headers, token, artifact, time.Now, time.Sleep)
+}
+
+func uploadArtifact(
+	client *http.Client,
+	method, url string,
+	headers map[string]string,
+	token, artifact string,
+	now func() time.Time,
+	sleep func(time.Duration),
+) error {
 	body, err := os.ReadFile(artifact)
 	if err != nil {
 		return fmt.Errorf("read artifact %s: %w", artifact, err)
 	}
 
-	req, err := http.NewRequest(method, url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
+	for attempt := 0; attempt < uploadAttempts; attempt++ {
+		req, err := http.NewRequest(method, url, bytes.NewReader(body))
+		if err != nil {
+			return fmt.Errorf("build request: %w", err)
+		}
 
-	req.Header.Set("Content-Type", "application/octet-stream")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	for key, value := range headers {
-		req.Header.Set(key, value)
-	}
+		req.Header.Set("Content-Type", "application/octet-stream")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("http upload: %w", err)
-	}
-	defer resp.Body.Close()
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("http upload: %w", err)
+		}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			_ = resp.Body.Close()
+			return nil
+		}
+
 		snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("upload failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(snippet)))
+		status := resp.StatusCode
+		retryAfter := retryAfterDelay(resp.Header.Get("Retry-After"), now())
+		_ = resp.Body.Close()
+		if status == http.StatusTooManyRequests && attempt+1 < uploadAttempts {
+			sleep(retryAfter)
+			continue
+		}
+		return fmt.Errorf("upload failed with status %d: %s", status, strings.TrimSpace(string(snippet)))
 	}
 
-	return nil
+	return fmt.Errorf("upload failed after %d attempts", uploadAttempts)
 }
 
 func DefaultHTTPClient() *http.Client {
 	return &http.Client{Timeout: 60 * time.Second}
+}
+
+const uploadAttempts = 3
+
+// maxRetryAfterDelay caps each server-requested pause; three attempts wait at most one minute total.
+const maxRetryAfterDelay = 30 * time.Second
+
+func retryAfterDelay(value string, now time.Time) time.Duration {
+	value = strings.TrimSpace(value)
+	seconds, err := strconv.ParseUint(value, 10, 64)
+	if err == nil {
+		if seconds >= uint64(maxRetryAfterDelay/time.Second) {
+			return maxRetryAfterDelay
+		}
+		return time.Duration(seconds) * time.Second
+	}
+
+	retryAt, err := http.ParseTime(value)
+	if err == nil {
+		delay := retryAt.Sub(now)
+		if delay < 0 {
+			return 0
+		}
+		if delay > maxRetryAfterDelay {
+			return maxRetryAfterDelay
+		}
+		return delay
+	}
+
+	return 100 * time.Millisecond
 }
