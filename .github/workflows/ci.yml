@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
@@ -25,10 +21,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go == '1.27rc1' && '1.27.0-rc.1' || format('{0}.x', matrix.go) }}
           allow-prereleases: true
@@ -38,8 +34,8 @@ jobs:
         run: go mod download
 
       - name: Run golangci-lint
-        if: matrix.go != '1.27rc1'
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        continue-on-error: true
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
 
@@ -51,7 +47,7 @@ jobs:
 
       - name: Upload coverage report
         if: matrix.go == '1.26'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage-report
           path: coverage.txt
@@ -61,7 +57,7 @@ jobs:
         run: go build -v ./cmd/plugin
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .

@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 The publisher-generic-http Authors
+# SPDX-FileCopyrightText: 2026 The plugin-template Authors
 
 .PHONY: build test lint coverage release build-all-platforms clean
 
-PLUGIN_NAME ?= semrel-plugin-publisher-generic-http
+PLUGIN_NAME ?= plugin
 DIST_DIR ?= dist
 
 build:
