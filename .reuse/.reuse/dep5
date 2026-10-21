@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: publisher-generic-http
-Upstream-Contact: The publisher-generic-http Authors <https://github.com/SemRels/publisher-generic-http>
+Upstream-Contact: The semrel Authors <https://github.com/SemRels/publisher-generic-http>
 Source: https://github.com/SemRels/publisher-generic-http
 
 # ----------------------------------------------------------------------------
@@ -8,7 +8,7 @@ Source: https://github.com/SemRels/publisher-generic-http
 # ----------------------------------------------------------------------------
 Files: *.md
  .github/**/*.md
-Copyright: 2026 The publisher-generic-http Authors
+Copyright: 2026 The semrel Authors
 License: Apache-2.0
 
 # ----------------------------------------------------------------------------
@@ -23,15 +23,18 @@ Files: Makefile
  *.template
  .gitignore
  .gitignore.template
+ .pre-commit-config.yaml
+ .github/renovate.json
  .github/**/*.yml
  .github/**/*.yaml
  .github/**/*.json
  .github/**/*.template
  .reuse/dep5
+ commitlint.config.js
  cmd/**/*.go
  internal/**/*.go
  proto/**
-Copyright: 2026 The publisher-generic-http Authors
+Copyright: 2026 The semrel Authors
 License: Apache-2.0
 
 # ----------------------------------------------------------------------------
@@ -40,5 +43,5 @@ License: Apache-2.0
 Files: LICENSE
  LICENSES/Apache-2.0.txt
  NOTICE
-Copyright: 2026 The publisher-generic-http Authors
+Copyright: 2026 The semrel Authors
 License: Apache-2.0
