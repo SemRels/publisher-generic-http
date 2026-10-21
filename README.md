@@ -35,20 +35,32 @@ Configure in `.semrel.yaml`:
 
 ```yaml
 plugins:
-	- uses: publisher-generic-http
-		args:
-			url: https://uploads.example.com/releases/{version}/{artifact}
-			method: PUT
-			token: ${UPLOAD_TOKEN}
-			artifacts: dist/myapp-linux-amd64,dist/myapp-linux-arm64
+  - uses: "@semrel/publisher-generic-http"
+    phase: release
+    args:
+      url: https://uploads.example.com/releases/{version}/{artifact}
+      method: PUT
+      token: ${UPLOAD_TOKEN}
+      artifacts: dist/myapp-linux-amd64,dist/myapp-linux-arm64
 ```
 
-Runtime inputs:
+## Options
 
-- `SEMREL_VERSION` / `SEMREL_NEXT_VERSION` (required)
-- `SEMREL_DRY_RUN`
-- `SEMREL_PLUGIN_URL` (required; supports `{version}` and `{artifact}` tokens)
-- `SEMREL_PLUGIN_METHOD` (default: `PUT`)
-- `SEMREL_PLUGIN_TOKEN` (optional bearer token)
-- `SEMREL_PLUGIN_HEADERS_JSON` (optional JSON object for custom headers)
-- `SEMREL_PLUGIN_ARTIFACTS` / `SEMREL_PLUGIN_ARTIFACTS_JSON` / `SEMREL_PLUGIN_ARTIFACT`
+Every option can be set as an entry under `args` in `.semrel.yaml`. semrel passes each entry to the plugin as the environment variable shown in the table, so you can also set that variable directly (for example in your CI environment) instead of using `args`.
+
+| Argument | Environment variable | Required | Description | Default |
+| --- | --- | --- | --- | --- |
+| `url` | `SEMREL_PLUGIN_URL` | Required | Upload URL. Supports the `{version}` and `{artifact}` tokens. | None |
+| `method` | `SEMREL_PLUGIN_METHOD` | Optional | HTTP method used for the upload. | `PUT` |
+| `token` | `SEMREL_PLUGIN_TOKEN` | Optional | Bearer token sent with each request. | None |
+| `headers_json` | `SEMREL_PLUGIN_HEADERS_JSON` | Optional | JSON object with custom request headers. | None |
+| `artifacts` | `SEMREL_PLUGIN_ARTIFACTS` | Optional | Comma-separated list of artifacts to upload. | None |
+| `artifacts_json` | `SEMREL_PLUGIN_ARTIFACTS_JSON` | Optional | JSON array of artifacts, used as a fallback for `artifacts`. | None |
+| `artifact` | `SEMREL_PLUGIN_ARTIFACT` | Optional | Single artifact, used as a fallback. | None |
+
+Release context:
+
+| Variable | Description |
+| --- | --- |
+| `SEMREL_VERSION` / `SEMREL_NEXT_VERSION` | Required release version. |
+| `SEMREL_DRY_RUN` | Whether semrel is running in dry-run mode. |
