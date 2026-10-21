@@ -1,6 +1,10 @@
 # publisher-generic-http
 
 [![Latest Release](https://img.shields.io/github/v/release/SemRels/publisher-generic-http?label=version&color=blue)](https://github.com/SemRels/publisher-generic-http/releases/latest)
+[![CI](https://github.com/SemRels/publisher-generic-http/actions/workflows/ci.yml/badge.svg)](https://github.com/SemRels/publisher-generic-http/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/SemRels/publisher-generic-http)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/SemRels/publisher-generic-http/badge)](https://scorecard.dev/viewer/?uri=github.com/SemRels/publisher-generic-http)
+[![REUSE status](https://api.reuse.software/badge/github.com/SemRels/publisher-generic-http)](https://api.reuse.software/info/github.com/SemRels/publisher-generic-http)
 
 Generic HTTP publisher plugin for semrel. It uploads release artifacts to custom endpoints via HTTP PUT/POST.
 
