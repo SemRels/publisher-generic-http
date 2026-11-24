@@ -55,12 +55,18 @@ func run(stdout, stderr io.Writer, getenv func(string) string) int {
 	}
 
 	token := strings.TrimSpace(getenv("SEMREL_PLUGIN_TOKEN"))
-	dryRun := strings.EqualFold(getenv("SEMREL_DRY_RUN"), "true")
+	dryRunValue := getenv("SEMREL_DRY_RUN")
+	dryRun := strings.EqualFold(dryRunValue, "true") || dryRunValue == "1"
 	client := plugin.DefaultHTTPClient()
+
+	if dryRun && token == "" && headers["Authorization"] == "" {
+		_, _ = fmt.Fprintln(stderr, "[dry-run] publisher-generic-http: would need SEMREL_PLUGIN_TOKEN to publish")
+	}
 
 	for _, artifact := range artifacts {
 		resolvedURL := plugin.ResolveURL(urlTemplate, version, artifact)
 		if dryRun {
+			_, _ = fmt.Fprintf(stderr, "[dry-run] publisher-generic-http: would publish %s (version %s) via %s %s\n", artifact, version, method, resolvedURL)
 			_, _ = fmt.Fprintf(stdout, "publisher-generic-http: [dry-run] would %s %s <- %s\n", method, resolvedURL, artifact)
 			continue
 		}
