@@ -55,7 +55,8 @@ func run(stdout, stderr io.Writer, getenv func(string) string) int {
 	}
 
 	token := strings.TrimSpace(getenv("SEMREL_PLUGIN_TOKEN"))
-	dryRun := strings.EqualFold(getenv("SEMREL_DRY_RUN"), "true")
+	dryRunValue := getenv("SEMREL_DRY_RUN")
+	dryRun := strings.EqualFold(dryRunValue, "true") || dryRunValue == "1"
 	client := plugin.DefaultHTTPClient()
 
 	if dryRun && token == "" && headers["Authorization"] == "" {

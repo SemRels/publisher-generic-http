@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -155,6 +156,36 @@ func TestIntegrationDryRunAndInvalidConfigurationMakeNoRequest(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "integration-secret") {
 		t.Error("invalid configuration leaked its bearer token")
+	}
+}
+
+func TestNumericDryRunDoesNotPublish(t *testing.T) {
+	t.Parallel()
+
+	artifact := filepath.Join(t.TempDir(), "release.tgz")
+	if err := os.WriteFile(artifact, []byte("release-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	t.Cleanup(server.Close)
+
+	var stdout, stderr bytes.Buffer
+	code := run(&stdout, &stderr, env(map[string]string{
+		"SEMREL_VERSION":         "1.2.3",
+		"SEMREL_PLUGIN_URL":      server.URL + "/{artifact}",
+		"SEMREL_PLUGIN_ARTIFACT": artifact,
+		"SEMREL_PLUGIN_TOKEN":    "test-token",
+		"SEMREL_DRY_RUN":         "1",
+	}))
+	if requests.Load() != 0 {
+		t.Fatalf("dry-run made %d HTTP requests", requests.Load())
+	}
+	if code != 0 || !strings.Contains(stdout.String(), "[dry-run]") {
+		t.Fatalf("dry-run code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
 
