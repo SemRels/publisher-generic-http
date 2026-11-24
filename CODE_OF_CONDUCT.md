@@ -1,6 +1,6 @@
 # Code of Conduct
 
-publisher-generic-http is committed to providing a welcoming and harassment-free community.
+`publisher-generic-http` is committed to providing a welcoming and harassment-free community.
 
 ## Our Pledge
 
